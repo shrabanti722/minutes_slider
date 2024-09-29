@@ -218,7 +218,7 @@ class TimeSeparatorLines extends StatelessWidget {
                     listPadding -
                     scrollController.offset;
                 final distanceToCenter =
-                    (separatorPosition - centerOfScreen + itemWidth / 2).abs();
+                    (separatorPosition - centerOfScreen + itemWidth / 2 + separatorTotalWidth).abs();
                 final double scale =
                     calculateScale(distanceToCenter, centerOfScreen);
 
