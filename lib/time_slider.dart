@@ -174,23 +174,24 @@ class MeditationDurationCarousel extends HookConsumerWidget {
   }
 }
 
-
 class TimeSeparatorLines extends StatelessWidget {
   final ScrollController scrollController;
   final int index;
-  // final Function calculateScale;
 
   const TimeSeparatorLines({
     super.key,
     required this.scrollController,
     required this.index,
-    // required this.calculateScale,
   });
 
   final double maxScale = 1.5;
   final double minScale = 0.2;
 
-  double calculateScale(double distanceToCenter, double centerPosition) {
+  double calculateScale(double distanceToCenter, double centerPosition, double screenWidth) {
+    if (distanceToCenter > screenWidth / 2) {
+      return minScale;
+    }
+
     final double normalizedDistance = (distanceToCenter) / centerPosition;
     final double scale =
         maxScale - (normalizedDistance * (maxScale - minScale));
@@ -220,7 +221,7 @@ class TimeSeparatorLines extends StatelessWidget {
                 final distanceToCenter =
                     (separatorPosition - centerOfScreen + itemWidth / 2 + separatorTotalWidth).abs();
                 final double scale =
-                    calculateScale(distanceToCenter, centerOfScreen);
+                    calculateScale(distanceToCenter, centerOfScreen, screenWidth);
 
                 final double height = 20 * scale;
 
