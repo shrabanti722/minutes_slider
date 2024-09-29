@@ -167,7 +167,8 @@ class MeditationDurationCarousel extends HookConsumerWidget {
             );
           },
           separatorBuilder: (context, index) {
-            return TimeSeparatorLines(scrollController: controller, index: index);
+            return TimeSeparatorLines(
+                scrollController: controller, index: index);
           },
           itemCount: meditationMinsOptions.length,
         ),
@@ -189,12 +190,13 @@ class TimeSeparatorLines extends StatelessWidget {
   final double maxScale = 1.3;
   final double minScale = 0.8;
 
-  double calculateScale(double distanceToCenter, double centerPosition, double screenWidth) {
+  double calculateScale(
+      double distanceToCenter, double centerPosition, double screenWidth) {
     if (distanceToCenter > screenWidth / 2) {
       return minScale;
     }
 
-    final double normalizedDistance = (distanceToCenter) / centerPosition;
+    final double normalizedDistance = (distanceToCenter * 3) / (centerPosition);
     final double scale =
         maxScale - (normalizedDistance * (maxScale - minScale));
     return scale.clamp(minScale, maxScale);
@@ -216,14 +218,23 @@ class TimeSeparatorLines extends StatelessWidget {
             AnimatedBuilder(
               animation: scrollController,
               builder: (context, child) {
-                final separatorPosition = (index + separatorIndex / 3) *
-                        (itemWidth + separatorTotalWidth) +
+                final itemPosition = index * (itemWidth + separatorTotalWidth) +
                     listPadding -
                     scrollController.offset;
+
+                final separatorBlockPosition = itemPosition + itemWidth;
+                final separatorRelativePosition =
+                    (separatorIndex * separatorLineWidth) +
+                        (separatorIndex * separatorGap);
+
+                final separatorPosition =
+                    separatorBlockPosition + separatorRelativePosition;
+
                 final distanceToCenter =
-                    (separatorPosition - centerOfScreen + itemWidth / 2 + separatorTotalWidth).abs();
-                final double scale =
-                    calculateScale(distanceToCenter, centerOfScreen, screenWidth);
+                    (separatorPosition - centerOfScreen).abs();
+
+                final double scale = calculateScale(
+                    distanceToCenter, centerOfScreen, screenWidth);
 
                 final double height = 20 * scale;
 
@@ -247,4 +258,3 @@ class TimeSeparatorLines extends StatelessWidget {
     );
   }
 }
-
