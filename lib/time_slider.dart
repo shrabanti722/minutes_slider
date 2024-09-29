@@ -165,7 +165,7 @@ class MeditationDurationCarousel extends HookConsumerWidget {
             );
           },
           separatorBuilder: (context, index) {
-            return TimeSeparatorLines(scrollController: controller);
+            return TimeSeparatorLines(scrollController: controller, index: index);
           },
           itemCount: meditationMinsOptions.length,
         ),
@@ -174,25 +174,68 @@ class MeditationDurationCarousel extends HookConsumerWidget {
   }
 }
 
+
 class TimeSeparatorLines extends StatelessWidget {
   final ScrollController scrollController;
-  const TimeSeparatorLines({super.key, required this.scrollController});
+  final int index;
+  // final Function calculateScale;
+
+  const TimeSeparatorLines({
+    super.key,
+    required this.scrollController,
+    required this.index,
+    // required this.calculateScale,
+  });
+
+  final double maxScale = 1.5;
+  final double minScale = 0.2;
+
+  double calculateScale(double distanceToCenter, double centerPosition) {
+    final double normalizedDistance = (distanceToCenter) / centerPosition;
+    final double scale =
+        maxScale - (normalizedDistance * (maxScale - minScale));
+    return scale.clamp(minScale, maxScale);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final itemWidth = screenWidth / 3;
+    final double centerOfScreen = screenWidth / 2;
+    final listPadding = centerOfScreen - itemWidth / 2;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(
         3,
         (separatorIndex) => Row(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              height: 20,
-              width: 3,
+            AnimatedBuilder(
+              animation: scrollController,
+              builder: (context, child) {
+                final separatorPosition = (index + separatorIndex / 3) *
+                        (itemWidth + separatorTotalWidth) +
+                    listPadding -
+                    scrollController.offset;
+                final distanceToCenter =
+                    (separatorPosition - centerOfScreen + itemWidth / 2).abs();
+                final double scale =
+                    calculateScale(distanceToCenter, centerOfScreen);
+
+                final double height = 20 * scale;
+
+                return Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    height: height,
+                    width: 3,
+                  ),
+                );
+              },
             ),
             if (separatorIndex < 2) const SizedBox(width: 10),
           ],
@@ -201,3 +244,4 @@ class TimeSeparatorLines extends StatelessWidget {
     );
   }
 }
+
