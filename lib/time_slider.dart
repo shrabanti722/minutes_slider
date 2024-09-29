@@ -6,7 +6,9 @@ import 'package:minutes_slider/meditation_selector_provider.dart';
 // import 'package:miracle_of_mind/common/extensions/extensions.dart';
 // import 'package:miracle_of_mind/home/screens/meditation_selector_screen/meditation_selector_provider.dart';
 
-const separatorTotalWidth = 29.0;
+const separatorGap = 12.0;
+const separatorLineWidth = 3.0;
+const separatorTotalWidth = (3 * separatorLineWidth) + (separatorGap * 2);
 
 class MeditationDurationCarousel extends HookConsumerWidget {
   const MeditationDurationCarousel({super.key});
@@ -184,8 +186,8 @@ class TimeSeparatorLines extends StatelessWidget {
     required this.index,
   });
 
-  final double maxScale = 1.5;
-  final double minScale = 0.2;
+  final double maxScale = 1.3;
+  final double minScale = 0.8;
 
   double calculateScale(double distanceToCenter, double centerPosition, double screenWidth) {
     if (distanceToCenter > screenWidth / 2) {
@@ -226,7 +228,7 @@ class TimeSeparatorLines extends StatelessWidget {
                 final double height = 20 * scale;
 
                 return Transform.scale(
-                  scale: scale,
+                  scaleY: scale,
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.4),
@@ -238,7 +240,7 @@ class TimeSeparatorLines extends StatelessWidget {
                 );
               },
             ),
-            if (separatorIndex < 2) const SizedBox(width: 10),
+            if (separatorIndex < 2) const SizedBox(width: 12),
           ],
         ),
       ),
