@@ -61,8 +61,10 @@ class MeditationDurationCarousel extends HookConsumerWidget {
     final maxScaleNotifier = useState<double>(1.5);
 
     // Controllers for the text fields
-    final minScaleController = useTextEditingController(text: minScaleNotifier.value.toString());
-    final maxScaleController = useTextEditingController(text: maxScaleNotifier.value.toString());
+    final minScaleController =
+        useTextEditingController(text: minScaleNotifier.value.toString());
+    final maxScaleController =
+        useTextEditingController(text: maxScaleNotifier.value.toString());
 
     useEffect(() {
       if (!controller.hasClients) {
@@ -124,7 +126,9 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   'Sigmoid',
                   'Exponential',
                   'Linear 2.5',
-                  'Linear 3'
+                  'Linear 3',
+                  'Quadratic',
+                  'Cubic'
                 ].map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
@@ -142,7 +146,7 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   decoration: const InputDecoration(labelText: 'minScale'),
                   keyboardType: TextInputType.number,
                   onChanged: (value) {
-                    if (value.endsWith('.')) return;
+                   if (value.endsWith('.')) return;
                     final newValue = double.tryParse(value);
                     if (newValue != null) {
                       minScaleNotifier.value = newValue;
@@ -296,6 +300,17 @@ class TimeSeparatorLines extends StatelessWidget {
         final double linearDistance = (distanceToCenter * 3) / centerPosition;
         final double scale =
             maxScale - (linearDistance * (maxScale - minScale));
+        return scale.clamp(minScale, maxScale);
+      case 'Quadratic':
+        final double normalizedDistance = distanceToCenter / centerPosition;
+        final double scale = maxScale -
+            (normalizedDistance * normalizedDistance) * (maxScale - minScale);
+        return scale.clamp(minScale, maxScale);
+      case 'Cubic':
+        final double normalizedDistance = distanceToCenter / centerPosition;
+        final double scale = maxScale -
+            (normalizedDistance * normalizedDistance * normalizedDistance) *
+                (maxScale - minScale);
         return scale.clamp(minScale, maxScale);
       default:
         return minScale;
