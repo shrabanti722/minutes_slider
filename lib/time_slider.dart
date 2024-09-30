@@ -5,8 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:minutes_slider/meditation_selector_provider.dart';
-// import 'package:miracle_of_mind/common/extensions/extensions.dart';
-// import 'package:miracle_of_mind/home/screens/meditation_selector_screen/meditation_selector_provider.dart';
 
 const separatorGap = 12.0;
 const separatorLineWidth = 3.0;
@@ -15,29 +13,19 @@ const separatorTotalWidth = (3 * separatorLineWidth) + (separatorGap * 2);
 class MeditationDurationCarousel extends HookConsumerWidget {
   const MeditationDurationCarousel({super.key});
 
-  final double maxScale = 1.1;
-  final double minScale = 0.2;
+    int getIndexFromOffset(double itemWidth, double scrollOffset) {
+      final scrollPosition = scrollOffset;
+      final itemSpacing = itemWidth + separatorTotalWidth;
+      final rawIndex = scrollPosition / itemSpacing;
+      final currentCenterIndex = rawIndex.round();
+      return currentCenterIndex;
+    }
 
-  double calculateScale(double distanceToCenter, double centerPosition) {
-    final double normalizedDistance = distanceToCenter / centerPosition;
-    final double scale =
-        maxScale - (normalizedDistance * (maxScale - minScale));
-    return scale.clamp(minScale, maxScale);
-  }
+    double getOffsetFromIndex(double itemWidth, int index) {
+      return index * (itemWidth + separatorTotalWidth);
+    }
 
-  int getIndexFromOffset(double itemWidth, double scrollOffset) {
-    final scrollPosition = scrollOffset;
-    final itemSpacing = itemWidth + separatorTotalWidth;
-    final rawIndex = scrollPosition / itemSpacing;
-    final currentCenterIndex = rawIndex.round();
-    return currentCenterIndex;
-  }
-
-  double getOffsetFromIndex(double itemWidth, int index) {
-    return index * (itemWidth + separatorTotalWidth);
-  }
-
-  @override
+ @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectorState = ref.watch(meditationSelectorProvider);
     final meditationMinsOptions = selectorState.meditationMinsOptions;
@@ -56,6 +44,45 @@ class MeditationDurationCarousel extends HookConsumerWidget {
     final isScrollSnapping = useRef<bool>(false);
 
     const minScrollThreshold = 20;
+
+    // Dropdown to select the scale function
+    final selectedFunction = useState<String>('Cosine');
+    
+    // Text editing controllers for minScale and maxScale
+    final minScaleController = useTextEditingController(text: '0.2');
+    final maxScaleController = useTextEditingController(text: '1.1');
+
+    double getMinScale() {
+      return double.tryParse(minScaleController.text) ?? 0.2;
+    }
+
+    double getMaxScale() {
+      return double.tryParse(maxScaleController.text) ?? 1.1;
+    }
+
+    double calculateScale(String functionType, double distanceToCenter, double centerPosition) {
+      final minScale = getMinScale();
+      final maxScale = getMaxScale();
+
+      final double normalizedDistance = distanceToCenter / centerPosition;
+
+      switch (functionType) {
+        case 'Cosine':
+          final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2);
+          return minScale + scaleFactor * (maxScale - minScale);
+        case 'Sigmoid':
+          final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5)));
+          return minScale + scaleFactor * (maxScale - minScale);
+        case 'Exponential':
+          final double scaleFactor = exp(-3 * normalizedDistance);
+          return minScale + scaleFactor * (maxScale - minScale);
+        case 'Linear':
+          final double linearDistance = (distanceToCenter * 2.5) / centerPosition;
+          return maxScale - (linearDistance * (maxScale - minScale));
+        default:
+          return minScale;
+      }
+    }
 
     useEffect(() {
       if (!controller.hasClients) {
@@ -76,14 +103,12 @@ class MeditationDurationCarousel extends HookConsumerWidget {
         final currentCenterIndex = rawIndex.round();
         final differenceBetweenIndex = currentCenterIndex - rawIndex;
 
-        if (
-            // if less than 0.2 difference between the current index and the raw index, then user has almost scrolled to the item.
-            differenceBetweenIndex.abs() < 0.2 &&
-                currentCenterIndex != lastSelectedItem.value &&
-                DateTime.now()
-                        .difference(lastCallbackTime.value)
-                        .inMilliseconds >
-                    minScrollThreshold) {
+        if (differenceBetweenIndex.abs() < 0.2 &&
+            currentCenterIndex != lastSelectedItem.value &&
+            DateTime.now()
+                    .difference(lastCallbackTime.value)
+                    .inMilliseconds >
+                minScrollThreshold) {
           lastSelectedItem.value = currentCenterIndex;
           lastCallbackTime.value = DateTime.now();
 
@@ -101,79 +126,128 @@ class MeditationDurationCarousel extends HookConsumerWidget {
       return () => controller.removeListener(scrollListener);
     }, []);
 
-    return SizedBox(
-      height: 200,
-      child: NotificationListener<ScrollEndNotification>(
-        onNotification: (notification) {
-          if (!isScrollSnapping.value) {
-            final scrollPosition = controller.offset;
-            final itemSpacing = itemWidth + separatorTotalWidth;
-            final rawIndex = scrollPosition / itemSpacing;
-            final targetIndex = rawIndex.round();
-
-            // print('Debug: scrollPosition = $scrollPosition');
-            // print('Debug: rawIndex = $rawIndex');
-            // print('Debug: targetIndex = $targetIndex');
-
-            final targetOffset = targetIndex * itemSpacing -
-                (centerOfScreen - listPadding - itemWidth / 2);
-
-            Future.delayed(Duration.zero, () async {
-              isScrollSnapping.value = true;
-              await controller.animateTo(
-                targetOffset,
-                duration: const Duration(milliseconds: 100),
-                curve: Curves.easeIn,
-              );
-              isScrollSnapping.value = false;
-            });
-          }
-          return false;
-        },
-        child: ListView.separated(
-          controller: controller,
-          padding: EdgeInsets.only(left: listPadding, right: listPadding),
-          scrollDirection: Axis.horizontal,
-          itemBuilder: (context, index) {
-            return SizedBox(
-              width: itemWidth,
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: controller,
-                  builder: (context, child) {
-                    final itemPosition =
-                        index * (itemWidth + separatorTotalWidth) +
-                            listPadding -
-                            controller.offset;
-                    final distanceToCenter =
-                        (itemPosition - centerOfScreen + itemWidth / 2).abs();
-                    final scale =
-                        calculateScale(distanceToCenter, centerOfScreen);
-                    return Transform.scale(
-                      scale: scale,
-                      child: Opacity(
-                        opacity: scale.clamp(0, 1),
-                        child: child!,
-                      ),
-                    );
-                  },
-                  child: Text(
-                    '${meditationMinsOptions[index].minutes}',
-                    style: 
-                      const TextStyle(fontFamily: 'Commissioner', fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white)
-                    
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 60.0, left: 8.0, right: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              DropdownButton<String>(
+                value: selectedFunction.value,
+                items: <String>['Cosine', 'Sigmoid', 'Exponential', 'Linear']
+                    .map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  selectedFunction.value = newValue!;
+                },
+              ),
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  controller: minScaleController,
+                  decoration: const InputDecoration(labelText: 'minScale'),
+                  keyboardType: TextInputType.number,
                 ),
               ),
-            );
-          },
-          separatorBuilder: (context, index) {
-            return TimeSeparatorLines(
-                scrollController: controller, index: index);
-          },
-          itemCount: meditationMinsOptions.length,
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  controller: maxScaleController,
+                  decoration: const InputDecoration(labelText: 'maxScale'),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        Expanded(
+          child: SizedBox(
+            height: 200,
+            child: NotificationListener<ScrollEndNotification>(
+              onNotification: (notification) {
+                if (!isScrollSnapping.value) {
+                  final scrollPosition = controller.offset;
+                  final itemSpacing = itemWidth + separatorTotalWidth;
+                  final rawIndex = scrollPosition / itemSpacing;
+                  final targetIndex = rawIndex.round();
+
+                  final targetOffset = targetIndex * itemSpacing -
+                      (centerOfScreen - listPadding - itemWidth / 2);
+
+                  Future.delayed(Duration.zero, () async {
+                    isScrollSnapping.value = true;
+                    await controller.animateTo(
+                      targetOffset,
+                      duration: const Duration(milliseconds: 100),
+                      curve: Curves.easeIn,
+                    );
+                    isScrollSnapping.value = false;
+                  });
+                }
+                return false;
+              },
+              child: ListView.separated(
+                controller: controller,
+                padding: EdgeInsets.only(left: listPadding, right: listPadding),
+                scrollDirection: Axis.horizontal,
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: itemWidth,
+                    child: Center(
+                      child: AnimatedBuilder(
+                        animation: controller,
+                        builder: (context, child) {
+                          final itemPosition = index *
+                                  (itemWidth + separatorTotalWidth) +
+                              listPadding -
+                              controller.offset;
+                          final distanceToCenter =
+                              (itemPosition - centerOfScreen + itemWidth / 2)
+                                  .abs();
+                          final scale = calculateScale(
+                              selectedFunction.value,
+                              distanceToCenter,
+                              centerOfScreen);
+                          return Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: scale.clamp(0, 1),
+                              child: child!,
+                            ),
+                          );
+                        },
+                        child: Text(
+                          '${meditationMinsOptions[index].minutes}',
+                          style: const TextStyle(
+                            fontFamily: 'Commissioner',
+                            fontSize: 72,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                separatorBuilder: (context, index) {
+                  return TimeSeparatorLines(
+                    scrollController: controller,
+                    index: index,
+                    selectedFunction: selectedFunction.value,
+                    minScale: getMinScale(),
+                    maxScale: getMaxScale(),
+                  );
+                },
+                itemCount: meditationMinsOptions.length,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -181,82 +255,41 @@ class MeditationDurationCarousel extends HookConsumerWidget {
 class TimeSeparatorLines extends StatelessWidget {
   final ScrollController scrollController;
   final int index;
+  final String selectedFunction;
+  final double minScale;
+  final double maxScale;
 
   const TimeSeparatorLines({
     super.key,
     required this.scrollController,
     required this.index,
+    required this.selectedFunction,
+    required this.minScale,
+    required this.maxScale,
   });
 
-  final double maxScale = 1.5;
-  final double minScale = 1;
+  double calculateScale(
+      double distanceToCenter, double centerPosition, double screenWidth) {
+    final double normalizedDistance = distanceToCenter / centerPosition;
 
-  // double calculateScale(
-  //     double distanceToCenter, double centerPosition, double screenWidth) {
-  //   if (distanceToCenter > screenWidth / 2) {
-  //     return minScale;
-  //   }
-
-  //   final double normalizedDistance = (distanceToCenter * 3) / (centerPosition);
-  //   final double scale =
-  //       maxScale - (normalizedDistance * (maxScale - minScale));
-  //   return scale.clamp(minScale, maxScale);
-  // }
-
-//   double calculateScale(
-//     double distanceToCenter, double centerPosition, double screenWidth) {
-//   if (distanceToCenter > screenWidth / 2) {
-//     return minScale;
-//   }
-
-//   // Use cosine for smooth wavy effect
-//   final double normalizedDistance = distanceToCenter / (centerPosition);
-//   final double scaleFactor = (1 + cos(pi * normalizedDistance)) / 2;
-//   final double scale = minScale + scaleFactor * (maxScale - minScale);
-  
-//   return scale.clamp(minScale, maxScale);
-// }
-
-double calculateScale(
-    double distanceToCenter, double centerPosition, double screenWidth) {
-  if (distanceToCenter > screenWidth / 2) {
-    return minScale;
+    switch (selectedFunction) {
+      case 'Cosine':
+        final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2);
+        return minScale + scaleFactor * (maxScale - minScale);
+      case 'Sigmoid':
+        final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5)));
+        return minScale + scaleFactor * (maxScale - minScale);
+      case 'Exponential':
+        final double scaleFactor = exp(-3 * normalizedDistance);
+        return minScale + scaleFactor * (maxScale - minScale);
+      case 'Linear':
+        final double linearDistance =
+            (distanceToCenter * 2.5) / centerPosition;
+        return maxScale - (linearDistance * (maxScale - minScale));
+      default:
+        return minScale;
+    }
   }
-
-  final double normalizedDistance = distanceToCenter / centerPosition;
-  final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2); // Square the result for faster transition
-  final double scale = minScale + scaleFactor * (maxScale - minScale);
-
-  return scale.clamp(minScale, maxScale);
-}
-
-// double calculateScale(
-//     double distanceToCenter, double centerPosition, double screenWidth) {
-//   if (distanceToCenter > screenWidth / 2) {
-//     return minScale;
-//   }
-
-//   final double normalizedDistance = distanceToCenter / centerPosition;
-//   final double scaleFactor = exp(-3 * normalizedDistance); // Faster decay with larger coefficient
-//   final double scale = minScale + scaleFactor * (maxScale - minScale);
-
-//   return scale.clamp(minScale, maxScale);
-// }
-
-// double calculateScale(
-//     double distanceToCenter, double centerPosition, double screenWidth) {
-//   if (distanceToCenter > screenWidth / 2) {
-//     return minScale;
-//   }
-
-//   final double normalizedDistance = distanceToCenter / centerPosition;
-//   final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5))); // Sigmoid with steepness factor
-//   final double scale = minScale + scaleFactor * (maxScale - minScale);
-
-//   return scale.clamp(minScale, maxScale);
-// }
-
-
 
   @override
   Widget build(BuildContext context) {
