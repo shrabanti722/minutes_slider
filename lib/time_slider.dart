@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -13,19 +12,29 @@ const separatorTotalWidth = (3 * separatorLineWidth) + (separatorGap * 2);
 class MeditationDurationCarousel extends HookConsumerWidget {
   const MeditationDurationCarousel({super.key});
 
-    int getIndexFromOffset(double itemWidth, double scrollOffset) {
-      final scrollPosition = scrollOffset;
-      final itemSpacing = itemWidth + separatorTotalWidth;
-      final rawIndex = scrollPosition / itemSpacing;
-      final currentCenterIndex = rawIndex.round();
-      return currentCenterIndex;
-    }
+  final double maxScale = 1.1;
+  final double minScale = 0.2;
 
-    double getOffsetFromIndex(double itemWidth, int index) {
-      return index * (itemWidth + separatorTotalWidth);
-    }
+  double calculateScale(double distanceToCenter, double centerPosition) {
+    final double normalizedDistance = distanceToCenter / centerPosition;
+    final double scale =
+        maxScale - (normalizedDistance * (maxScale - minScale));
+    return scale.clamp(minScale, maxScale);
+  }
 
- @override
+  int getIndexFromOffset(double itemWidth, double scrollOffset) {
+    final scrollPosition = scrollOffset;
+    final itemSpacing = itemWidth + separatorTotalWidth;
+    final rawIndex = scrollPosition / itemSpacing;
+    final currentCenterIndex = rawIndex.round();
+    return currentCenterIndex;
+  }
+
+  double getOffsetFromIndex(double itemWidth, int index) {
+    return index * (itemWidth + separatorTotalWidth);
+  }
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectorState = ref.watch(meditationSelectorProvider);
     final meditationMinsOptions = selectorState.meditationMinsOptions;
@@ -45,44 +54,15 @@ class MeditationDurationCarousel extends HookConsumerWidget {
 
     const minScrollThreshold = 20;
 
-    // Dropdown to select the scale function
     final selectedFunction = useState<String>('Cosine');
-    
-    // Text editing controllers for minScale and maxScale
-    final minScaleController = useTextEditingController(text: '0.2');
-    final maxScaleController = useTextEditingController(text: '1.1');
 
-    double getMinScale() {
-      return double.tryParse(minScaleController.text) ?? 0.2;
-    }
+    // State variables for minScale and maxScale
+    final minScaleNotifier = useState<double>(0.8);
+    final maxScaleNotifier = useState<double>(1.5);
 
-    double getMaxScale() {
-      return double.tryParse(maxScaleController.text) ?? 1.1;
-    }
-
-    double calculateScale(String functionType, double distanceToCenter, double centerPosition) {
-      final minScale = getMinScale();
-      final maxScale = getMaxScale();
-
-      final double normalizedDistance = distanceToCenter / centerPosition;
-
-      switch (functionType) {
-        case 'Cosine':
-          final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2);
-          return minScale + scaleFactor * (maxScale - minScale);
-        case 'Sigmoid':
-          final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5)));
-          return minScale + scaleFactor * (maxScale - minScale);
-        case 'Exponential':
-          final double scaleFactor = exp(-3 * normalizedDistance);
-          return minScale + scaleFactor * (maxScale - minScale);
-        case 'Linear':
-          final double linearDistance = (distanceToCenter * 2.5) / centerPosition;
-          return maxScale - (linearDistance * (maxScale - minScale));
-        default:
-          return minScale;
-      }
-    }
+    // Controllers for the text fields
+    final minScaleController = useTextEditingController(text: minScaleNotifier.value.toString());
+    final maxScaleController = useTextEditingController(text: maxScaleNotifier.value.toString());
 
     useEffect(() {
       if (!controller.hasClients) {
@@ -105,9 +85,7 @@ class MeditationDurationCarousel extends HookConsumerWidget {
 
         if (differenceBetweenIndex.abs() < 0.2 &&
             currentCenterIndex != lastSelectedItem.value &&
-            DateTime.now()
-                    .difference(lastCallbackTime.value)
-                    .inMilliseconds >
+            DateTime.now().difference(lastCallbackTime.value).inMilliseconds >
                 minScrollThreshold) {
           lastSelectedItem.value = currentCenterIndex;
           lastCallbackTime.value = DateTime.now();
@@ -126,6 +104,11 @@ class MeditationDurationCarousel extends HookConsumerWidget {
       return () => controller.removeListener(scrollListener);
     }, []);
 
+    useEffect(() {
+      minScaleController.text = minScaleNotifier.value.toString();
+      maxScaleController.text = maxScaleNotifier.value.toString();
+    }, [minScaleNotifier.value, maxScaleNotifier.value]);
+
     return Column(
       children: [
         Padding(
@@ -135,8 +118,14 @@ class MeditationDurationCarousel extends HookConsumerWidget {
             children: [
               DropdownButton<String>(
                 value: selectedFunction.value,
-                items: <String>['Cosine', 'Sigmoid', 'Exponential', 'Linear']
-                    .map((String value) {
+                items: <String>[
+                  'Cosine',
+                  'Cosine ^ 2',
+                  'Sigmoid',
+                  'Exponential',
+                  'Linear 2.5',
+                  'Linear 3'
+                ].map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
@@ -152,6 +141,13 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   controller: minScaleController,
                   decoration: const InputDecoration(labelText: 'minScale'),
                   keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    if (value.endsWith('.')) return;
+                    final newValue = double.tryParse(value);
+                    if (newValue != null) {
+                      minScaleNotifier.value = newValue;
+                    }
+                  },
                 ),
               ),
               SizedBox(
@@ -160,6 +156,13 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   controller: maxScaleController,
                   decoration: const InputDecoration(labelText: 'maxScale'),
                   keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    final newValue = double.tryParse(value);
+                    if (value.endsWith('.')) return;
+                    if (newValue != null) {
+                      maxScaleNotifier.value = newValue;
+                    }
+                  },
                 ),
               ),
             ],
@@ -202,17 +205,15 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                       child: AnimatedBuilder(
                         animation: controller,
                         builder: (context, child) {
-                          final itemPosition = index *
-                                  (itemWidth + separatorTotalWidth) +
-                              listPadding -
-                              controller.offset;
+                          final itemPosition =
+                              index * (itemWidth + separatorTotalWidth) +
+                                  listPadding -
+                                  controller.offset;
                           final distanceToCenter =
                               (itemPosition - centerOfScreen + itemWidth / 2)
                                   .abs();
-                          final scale = calculateScale(
-                              selectedFunction.value,
-                              distanceToCenter,
-                              centerOfScreen);
+                          final scale =
+                              calculateScale(distanceToCenter, centerOfScreen);
                           return Transform.scale(
                             scale: scale,
                             child: Opacity(
@@ -238,8 +239,8 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                     scrollController: controller,
                     index: index,
                     selectedFunction: selectedFunction.value,
-                    minScale: getMinScale(),
-                    maxScale: getMaxScale(),
+                    minScale: minScaleNotifier.value,
+                    maxScale: maxScaleNotifier.value,
                   );
                 },
                 itemCount: meditationMinsOptions.length,
@@ -274,18 +275,28 @@ class TimeSeparatorLines extends StatelessWidget {
 
     switch (selectedFunction) {
       case 'Cosine':
+        final double scaleFactor = (1 + cos(pi * normalizedDistance)) / 2;
+        return minScale + scaleFactor * (maxScale - minScale);
+      case 'Cosine ^ 2':
         final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2);
         return minScale + scaleFactor * (maxScale - minScale);
       case 'Sigmoid':
-        final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5)));
+        final double scaleFactor =
+            1 / (1 + exp(8 * (normalizedDistance - 0.5)));
         return minScale + scaleFactor * (maxScale - minScale);
       case 'Exponential':
         final double scaleFactor = exp(-3 * normalizedDistance);
         return minScale + scaleFactor * (maxScale - minScale);
-      case 'Linear':
-        final double linearDistance =
-            (distanceToCenter * 2.5) / centerPosition;
-        return maxScale - (linearDistance * (maxScale - minScale));
+      case 'Linear 2.5':
+        final double linearDistance = (distanceToCenter * 2.5) / centerPosition;
+        final double scale =
+            maxScale - (linearDistance * (maxScale - minScale));
+        return scale.clamp(minScale, maxScale);
+      case 'Linear 3':
+        final double linearDistance = (distanceToCenter * 3) / centerPosition;
+        final double scale =
+            maxScale - (linearDistance * (maxScale - minScale));
+        return scale.clamp(minScale, maxScale);
       default:
         return minScale;
     }
