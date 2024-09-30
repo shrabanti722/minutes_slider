@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -157,10 +159,9 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   },
                   child: Text(
                     '${meditationMinsOptions[index].minutes}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineLarge
-                        ?.copyWith(fontSize: 54),
+                    style: 
+                      const TextStyle(fontFamily: 'Commissioner', fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white)
+                    
                   ),
                 ),
               ),
@@ -187,20 +188,75 @@ class TimeSeparatorLines extends StatelessWidget {
     required this.index,
   });
 
-  final double maxScale = 1.3;
-  final double minScale = 0.8;
+  final double maxScale = 1.5;
+  final double minScale = 1;
 
-  double calculateScale(
-      double distanceToCenter, double centerPosition, double screenWidth) {
-    if (distanceToCenter > screenWidth / 2) {
-      return minScale;
-    }
+  // double calculateScale(
+  //     double distanceToCenter, double centerPosition, double screenWidth) {
+  //   if (distanceToCenter > screenWidth / 2) {
+  //     return minScale;
+  //   }
 
-    final double normalizedDistance = (distanceToCenter * 3) / (centerPosition);
-    final double scale =
-        maxScale - (normalizedDistance * (maxScale - minScale));
-    return scale.clamp(minScale, maxScale);
+  //   final double normalizedDistance = (distanceToCenter * 3) / (centerPosition);
+  //   final double scale =
+  //       maxScale - (normalizedDistance * (maxScale - minScale));
+  //   return scale.clamp(minScale, maxScale);
+  // }
+
+//   double calculateScale(
+//     double distanceToCenter, double centerPosition, double screenWidth) {
+//   if (distanceToCenter > screenWidth / 2) {
+//     return minScale;
+//   }
+
+//   // Use cosine for smooth wavy effect
+//   final double normalizedDistance = distanceToCenter / (centerPosition);
+//   final double scaleFactor = (1 + cos(pi * normalizedDistance)) / 2;
+//   final double scale = minScale + scaleFactor * (maxScale - minScale);
+  
+//   return scale.clamp(minScale, maxScale);
+// }
+
+double calculateScale(
+    double distanceToCenter, double centerPosition, double screenWidth) {
+  if (distanceToCenter > screenWidth / 2) {
+    return minScale;
   }
+
+  final double normalizedDistance = distanceToCenter / centerPosition;
+  final num scaleFactor = pow((1 + cos(pi * normalizedDistance)) / 2, 2); // Square the result for faster transition
+  final double scale = minScale + scaleFactor * (maxScale - minScale);
+
+  return scale.clamp(minScale, maxScale);
+}
+
+// double calculateScale(
+//     double distanceToCenter, double centerPosition, double screenWidth) {
+//   if (distanceToCenter > screenWidth / 2) {
+//     return minScale;
+//   }
+
+//   final double normalizedDistance = distanceToCenter / centerPosition;
+//   final double scaleFactor = exp(-3 * normalizedDistance); // Faster decay with larger coefficient
+//   final double scale = minScale + scaleFactor * (maxScale - minScale);
+
+//   return scale.clamp(minScale, maxScale);
+// }
+
+// double calculateScale(
+//     double distanceToCenter, double centerPosition, double screenWidth) {
+//   if (distanceToCenter > screenWidth / 2) {
+//     return minScale;
+//   }
+
+//   final double normalizedDistance = distanceToCenter / centerPosition;
+//   final double scaleFactor = 1 / (1 + exp(8 * (normalizedDistance - 0.5))); // Sigmoid with steepness factor
+//   final double scale = minScale + scaleFactor * (maxScale - minScale);
+
+//   return scale.clamp(minScale, maxScale);
+// }
+
+
 
   @override
   Widget build(BuildContext context) {

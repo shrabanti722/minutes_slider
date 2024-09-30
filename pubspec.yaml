@@ -88,5 +88,16 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
+  fonts:
+    - family: "Commissioner"
+      fonts:
+        - asset: lib/common/assets/fonts/Commissioner-Regular.ttf
+          weight: 400
+        - asset: lib/common/assets/fonts/Commissioner-Medium.ttf
+          weight: 500
+        - asset: lib/common/assets/fonts/Commissioner-SemiBold.ttf
+          weight: 600
+        - asset: lib/common/assets/fonts/Commissioner-Bold.ttf
+          weight: 700
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
