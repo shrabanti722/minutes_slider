@@ -57,7 +57,7 @@ class MeditationDurationCarousel extends HookConsumerWidget {
     final selectedFunction = useState<String>('Cosine');
 
     // State variables for minScale and maxScale
-    final minScaleNotifier = useState<double>(0.8);
+    final minScaleNotifier = useState<double>(1);
     final maxScaleNotifier = useState<double>(1.5);
 
     // Controllers for the text fields
@@ -146,7 +146,7 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   decoration: const InputDecoration(labelText: 'minScale'),
                   keyboardType: TextInputType.number,
                   onChanged: (value) {
-                   if (value.endsWith('.')) return;
+                    if (value.endsWith('.')) return;
                     final newValue = double.tryParse(value);
                     if (newValue != null) {
                       minScaleNotifier.value = newValue;
@@ -183,8 +183,9 @@ class MeditationDurationCarousel extends HookConsumerWidget {
                   final rawIndex = scrollPosition / itemSpacing;
                   final targetIndex = rawIndex.round();
 
-                  final targetOffset = targetIndex * itemSpacing -
-                      (centerOfScreen - listPadding - itemWidth / 2);
+                  // final targetOffset = targetIndex * itemSpacing -
+                  //     (centerOfScreen - listPadding - itemWidth / 2);
+                  final targetOffset = targetIndex * itemSpacing;
 
                   Future.delayed(Duration.zero, () async {
                     isScrollSnapping.value = true;
@@ -273,8 +274,8 @@ class TimeSeparatorLines extends StatelessWidget {
     required this.maxScale,
   });
 
-  double calculateScale(
-      double distanceToCenter, double centerPosition, double screenWidth) {
+  double calculateScale(double distanceToCenter, double centerPosition,
+      double screenWidth, int separatorIndex) {
     final double normalizedDistance = distanceToCenter / centerPosition;
 
     switch (selectedFunction) {
@@ -301,16 +302,41 @@ class TimeSeparatorLines extends StatelessWidget {
         final double scale =
             maxScale - (linearDistance * (maxScale - minScale));
         return scale.clamp(minScale, maxScale);
+      // case 'Linear 3':
+      //   final double linearDistance = (distanceToCenter * 3) / centerPosition;
+      //   final double offset =
+      //       0.1 * separatorIndex;
+      //   final double scale =
+      //       maxScale - (linearDistance + offset) * (maxScale - minScale);
+      //   return scale.clamp(minScale, maxScale);
+      // case 'Quadratic':
+      //   final double normalizedDistance = distanceToCenter / centerPosition;
+      //   final double scale = maxScale -
+      //       (normalizedDistance * normalizedDistance) * (maxScale - minScale);
+      //   return scale.clamp(minScale, maxScale);
       case 'Quadratic':
-        final double normalizedDistance = distanceToCenter / centerPosition;
-        final double scale = maxScale -
-            (normalizedDistance * normalizedDistance) * (maxScale - minScale);
+        final double scaleFactor = pow(1 - normalizedDistance, 2).toDouble();
+
+        final double separatorFactor = 1 + (separatorIndex * 0.15);
+
+        final double scale =
+            minScale + scaleFactor * separatorFactor * (maxScale - minScale);
+
         return scale.clamp(minScale, maxScale);
+      // case 'Cubic':
+      //   final double normalizedDistance = distanceToCenter / centerPosition;
+      //   final double scale = maxScale -
+      //       (normalizedDistance * normalizedDistance * normalizedDistance) *
+      //           (maxScale - minScale);
+      //   return scale.clamp(minScale, maxScale);
       case 'Cubic':
-        final double normalizedDistance = distanceToCenter / centerPosition;
-        final double scale = maxScale -
-            (normalizedDistance * normalizedDistance * normalizedDistance) *
-                (maxScale - minScale);
+        final double scaleFactor = pow(1 - normalizedDistance, 3).toDouble();
+
+        final double separatorFactor = 1 + (separatorIndex * 0.15);
+
+        final double scale =
+            minScale + scaleFactor * separatorFactor * (maxScale - minScale);
+
         return scale.clamp(minScale, maxScale);
       default:
         return minScale;
@@ -348,10 +374,12 @@ class TimeSeparatorLines extends StatelessWidget {
                 final distanceToCenter =
                     (separatorPosition - centerOfScreen).abs();
 
-                final double scale = calculateScale(
-                    distanceToCenter, centerOfScreen, screenWidth);
+                final double scale = calculateScale(distanceToCenter,
+                    centerOfScreen, screenWidth, separatorIndex);
 
                 final double height = 20 * scale;
+                // const double fixedHeight = 20;
+                // final double heightDifference = fixedHeight * scale;
 
                 return Transform.scale(
                   scaleY: scale,
